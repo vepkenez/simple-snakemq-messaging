@@ -5,7 +5,7 @@ import snakemq.message
 
 Message = snakemq.message.Message
 
-from .constants import PORT, HOST
+from ..constants import PORT, HOST
 
 def connect(name):
     link = snakemq.link.Link()
