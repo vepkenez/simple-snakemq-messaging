@@ -1,32 +1,27 @@
-import snakemq.link
-import snakemq.packeter
-import snakemq.messaging
-import snakemq.message
-
-Message = snakemq.message.Message
 
 from ..constants import PORT, HOST
 
-def connect(name):
-    link = snakemq.link.Link()
-    packeter = snakemq.packeter.Packeter(link)
-    messaging = snakemq.messaging.Messaging(name, "", packeter)
-    link.add_connector((HOST, PORT))
-
-    return link, messaging, Message
-
+import zmq
+from control.constants import PORT
 
 def listen(name, callable):
 
-    link, messaging, Message = connect(name)
-    link.add_listener(("", PORT))
+    context = zmq.Context.instance()
 
-    def listener(conn, ident, message):
+    sock = context.socket(zmq.SUB)
+    sock.setsockopt(zmq.SUBSCRIBE, b'')
+    sock.connect('tcp://%s:%d'%(HOST, PORT))
 
-        data = message.data.decode('ascii')
+    def listener(message):
+        data = message.decode('ascii')
         callable([int(d) for d in data.split()])
-
-    messaging.on_message_recv.add(listener)
+    
     print (callable, "is listening")
-    link.loop()
-
+    try:
+        while True:
+        
+            message = sock.recv()
+            listener(message)
+    except Exception as e:
+        print (e)
+        exit()
