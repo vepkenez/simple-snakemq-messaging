@@ -1,32 +1,39 @@
-import snakemq.link
-import snakemq.packeter
-import snakemq.messaging
-import snakemq.message
-
-Message = snakemq.message.Message
 
 from ..constants import PORT, HOST
 
-def connect(name):
-    link = snakemq.link.Link()
-    packeter = snakemq.packeter.Packeter(link)
-    messaging = snakemq.messaging.Messaging(name, "", packeter)
-    link.add_connector((HOST, PORT))
+import zmq
+from control.constants import PORT
 
-    return link, messaging, Message
+import sys
+import os
 
+
+def is_only_num_and_spaces(number_sequence):
+    return all(var.isdigit() for var in number_sequence.split())
 
 def listen(name, callable):
 
-    link, messaging, Message = connect(name)
-    link.add_listener(("", PORT))
+    context = zmq.Context.instance()
 
-    def listener(conn, ident, message):
+    sock = context.socket(zmq.SUB)
+    sock.setsockopt(zmq.SUBSCRIBE, b'')
+    sock.connect('tcp://%s:%d'%(HOST, PORT))
 
-        data = message.data.decode('ascii')
-        callable([int(d) for d in data.split()])
-
-    messaging.on_message_recv.add(listener)
+    def listener(message):
+        data = message.decode('ascii')
+        if is_only_num_and_spaces( data ):
+            callable([int(d) for d in data.split()])
+        else:
+            callable( data )
+    
     print (callable, "is listening")
-    link.loop()
-
+    #try:
+    while True:
+    
+        message = sock.recv()
+        listener(message)
+    # except Exception as e:
+    #     exc_type, exc_obj, exc_tb = sys.exc_info()
+    #     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    #     print(exc_type, fname, exc_tb.tb_lineno)
+    #     exit()
